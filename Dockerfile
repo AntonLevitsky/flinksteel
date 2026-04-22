@@ -2,8 +2,7 @@ FROM node:22-alpine AS assets
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
-COPY vite.config.js ./
-COPY resources/ resources/
+COPY . .
 RUN npm run build
 
 FROM php:8.4-cli AS app
