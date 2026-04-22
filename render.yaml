@@ -1,0 +1,9 @@
+services:
+  - type: web
+    runtime: docker
+    name: flinksteel
+    region: frankfurt
+    plan: free
+    envVars:
+      - key: APP_KEY
+        generateValue: true
