@@ -1,0 +1,31 @@
+app = 'flinksteel'
+primary_region = 'fra'
+
+[build]
+
+[env]
+  APP_ENV = 'production'
+  APP_DEBUG = 'false'
+  APP_URL = 'https://flinksteel.fly.dev'
+  APP_LOCALE = 'de'
+  APP_FAKER_LOCALE = 'de_DE'
+  DB_CONNECTION = 'sqlite'
+  LOG_CHANNEL = 'stderr'
+  SESSION_DRIVER = 'file'
+  CACHE_STORE = 'file'
+  QUEUE_CONNECTION = 'sync'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+
+[mounts]
+  source = 'data'
+  destination = '/data'
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '512mb'

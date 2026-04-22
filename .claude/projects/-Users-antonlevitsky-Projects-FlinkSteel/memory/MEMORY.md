@@ -1,0 +1,2 @@
+- [User profile](user_profile.md) — Anton, building FlinkSteel B2B steel e-commerce prototype
+- [E-commerce UX improvements](project_ecommerce_ux.md) — Tier 1+2 features implemented April 2026

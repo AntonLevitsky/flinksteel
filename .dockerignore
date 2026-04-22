@@ -1,0 +1,14 @@
+node_modules
+vendor
+public/build
+.env
+.env.backup
+.git
+.idea
+.vscode
+.DS_Store
+storage/logs/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/framework/cache/data/*
+database/database.sqlite
