@@ -6,7 +6,7 @@ COPY vite.config.js ./
 COPY resources/ resources/
 RUN npm run build
 
-FROM php:8.3-cli AS app
+FROM php:8.4-cli AS app
 
 RUN apt-get update && apt-get install -y \
     unzip libsqlite3-dev \
