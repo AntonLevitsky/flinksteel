@@ -13,7 +13,10 @@
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
             <div>
                 <h1 class="text-2xl font-bold text-gray-900">Bestellung {{ $order->order_number }}</h1>
-                <p class="text-sm text-gray-500">Aufgegeben am {{ $order->placed_at->format('d.m.Y \u\m H:i') }} Uhr</p>
+                <p class="text-sm text-gray-500">
+                    Aufgegeben am {{ $order->placed_at->format('d.m.Y \u\m H:i') }} Uhr
+                    @if($order->po_number) · Ihre Referenz <strong class="text-gray-700">{{ $order->po_number }}</strong> @endif
+                </p>
             </div>
             <div class="flex items-center gap-3">
                 @php $color = $order->getStatusColor(); @endphp
@@ -39,21 +42,55 @@
             <x-order-timeline :order="$order" />
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             <div class="bg-white rounded-xl border border-gray-200 p-5">
-                <h3 class="text-sm font-semibold text-gray-500 uppercase mb-2">Lieferadresse</h3>
-                <p class="text-sm text-gray-900">{{ $order->customer->company_name }}</p>
-                <p class="text-sm text-gray-600">{{ $order->delivery_street }}</p>
-                <p class="text-sm text-gray-600">{{ $order->delivery_postal_code }} {{ $order->delivery_city }}</p>
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Lieferadresse</h3>
+                @if($order->delivery_company_name)
+                    <p class="text-sm font-medium text-gray-900">{{ $order->delivery_company_name }}</p>
+                @else
+                    <p class="text-sm font-medium text-gray-900">{{ $order->customer->company_name }}</p>
+                @endif
+                <p class="text-sm text-gray-700">{{ $order->delivery_street }}</p>
+                <p class="text-sm text-gray-700">{{ $order->delivery_postal_code }} {{ $order->delivery_city }}</p>
+                @if($order->delivery_contact_name || $order->delivery_contact_phone || $order->delivery_window)
+                    <div class="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500 space-y-0.5">
+                        @if($order->delivery_contact_name)<p>Ansprechpartner: <span class="text-gray-700">{{ $order->delivery_contact_name }}</span></p>@endif
+                        @if($order->delivery_contact_phone)<p>Telefon: <span class="text-gray-700">{{ $order->delivery_contact_phone }}</span></p>@endif
+                        @if($order->delivery_window)<p>Zeitfenster: <span class="text-gray-700">{{ $order->delivery_window }}</span></p>@endif
+                    </div>
+                @endif
             </div>
             <div class="bg-white rounded-xl border border-gray-200 p-5">
-                <h3 class="text-sm font-semibold text-gray-500 uppercase mb-2">Wunschliefertermin</h3>
-                <p class="text-sm text-gray-900">{{ $order->requested_delivery_date->format('d.m.Y') }}</p>
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Rechnungsadresse</h3>
+                <p class="text-sm font-medium text-gray-900">{{ $order->billing_company_name ?? $order->customer->company_name }}</p>
+                <p class="text-sm text-gray-700">{{ $order->billing_street ?? $order->customer->street }}</p>
+                <p class="text-sm text-gray-700">{{ $order->billing_postal_code ?? $order->customer->postal_code }} {{ $order->billing_city ?? $order->customer->city }}</p>
+                <div class="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500 space-y-0.5">
+                    <p>Kd.-Nr.: <span class="text-gray-700">{{ $order->customer->customer_number }}</span></p>
+                    @if($order->billing_vat_id)<p>USt-IdNr.: <span class="text-gray-700">{{ $order->billing_vat_id }}</span></p>@endif
+                </div>
             </div>
-            <div class="bg-white rounded-xl border border-gray-200 p-5">
-                <h3 class="text-sm font-semibold text-gray-500 uppercase mb-2">Bestellt von</h3>
-                <p class="text-sm text-gray-900">{{ $order->user->name ?? 'Unbekannt' }}</p>
-                <p class="text-sm text-gray-600">{{ $order->customer->customer_number }}</p>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+            <div class="bg-white rounded-xl border border-gray-200 p-4">
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Wunschtermin</p>
+                <p class="text-sm font-medium text-gray-900">{{ $order->requested_delivery_date->format('d.m.Y') }}</p>
+            </div>
+            <div class="bg-white rounded-xl border border-gray-200 p-4">
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Versandart</p>
+                <p class="text-sm font-medium text-gray-900">{{ $order->shipping_option_label ?? 'Standard' }}</p>
+            </div>
+            <div class="bg-white rounded-xl border border-gray-200 p-4">
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Zahlungsziel</p>
+                <p class="text-sm font-medium text-gray-900">{{ $order->payment_terms_days ?? 30 }} Tage netto</p>
+                @if($order->payment_due_date)
+                    <p class="text-xs text-gray-500">fällig {{ $order->payment_due_date->format('d.m.Y') }}</p>
+                @endif
+            </div>
+            <div class="bg-white rounded-xl border border-gray-200 p-4">
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Bestellt von</p>
+                <p class="text-sm font-medium text-gray-900">{{ $order->user->name ?? '—' }}</p>
             </div>
         </div>
 

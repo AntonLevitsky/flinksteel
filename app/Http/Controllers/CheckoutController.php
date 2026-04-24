@@ -3,13 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\ShippingHelper;
+use App\Mail\OrderConfirmation;
 use App\Models\AnarbeitungOption;
 use App\Models\Certificate;
 use App\Models\Order;
 use App\Models\OrderItem;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class CheckoutController extends Controller
 {
@@ -28,7 +31,6 @@ class CheckoutController extends Controller
         $totalWeight = ShippingHelper::calculateCartWeight($items);
         $itemCount = $items->sum('quantity');
 
-        // Build shipping options based on weight, item count, and PLZ
         $shippingOptions = ShippingHelper::getOptions($totalWeight, $itemCount, $customer->postal_code);
         $defaultOption = $shippingOptions[0] ?? null;
         $shipping = $defaultOption['cost'] ?? 0;
@@ -50,15 +52,32 @@ class CheckoutController extends Controller
 
     public function place(Request $request)
     {
-        $request->validate([
-            'delivery_street' => 'required|string',
-            'delivery_postal_code' => 'required|string',
-            'delivery_city' => 'required|string',
+        $validated = $request->validate([
+            // Delivery
+            'delivery_company_name' => 'nullable|string|max:255',
+            'delivery_contact_name' => 'nullable|string|max:255',
+            'delivery_contact_phone' => 'nullable|string|max:50',
+            'delivery_street' => 'required|string|max:255',
+            'delivery_postal_code' => 'required|string|max:10',
+            'delivery_city' => 'required|string|max:255',
+            'delivery_window' => 'nullable|string|max:100',
             'requested_delivery_date' => 'required|date|after:today',
             'shipping_option' => 'required|string',
+            // Billing
+            'billing_same_as_delivery' => 'nullable|in:0,1',
+            'billing_company_name' => 'nullable|string|max:255',
+            'billing_street' => 'nullable|string|max:255',
+            'billing_postal_code' => 'nullable|string|max:10',
+            'billing_city' => 'nullable|string|max:255',
+            'billing_vat_id' => 'nullable|string|max:50',
+            'billing_email' => 'nullable|email|max:255',
+            'po_number' => 'nullable|string|max:100',
+            'notes' => 'nullable|string|max:1000',
+            'terms_accepted' => 'accepted',
         ]);
 
         $user = Auth::user();
+        $customer = $user->customer;
         $cart = $user->getOrCreateCart();
         $items = $cart->items()->with('product.material')->get();
 
@@ -90,32 +109,63 @@ class CheckoutController extends Controller
 
         $totalWeight = ShippingHelper::calculateCartWeight($items);
         $itemCount = $items->sum('quantity');
-        $shipping = ShippingHelper::getCostForOption(
-            $request->shipping_option,
-            $totalWeight,
-            $itemCount,
-            $request->delivery_postal_code
-        );
+
+        $shippingOptions = ShippingHelper::getOptions($totalWeight, $itemCount, $validated['delivery_postal_code']);
+        $selectedOption = collect($shippingOptions)->firstWhere('code', $validated['shipping_option']);
+        $shipping = $selectedOption['cost'] ?? 0;
+        $shippingLabel = $selectedOption['label'] ?? ucfirst($validated['shipping_option']);
 
         $netTotal = $subtotal + $shipping;
         $grossTotal = round($netTotal * 1.19, 2);
+
+        // Billing defaults: when "same as customer" checkbox is checked, use customer stammdaten;
+        // otherwise use the override fields (falling back to customer where fields are blank).
+        $billingSame = $request->has('billing_same_as_delivery');
+        $billingCompany = $billingSame ? $customer->company_name : (($validated['billing_company_name'] ?? null) ?: $customer->company_name);
+        $billingStreet = $billingSame ? $customer->street : (($validated['billing_street'] ?? null) ?: $customer->street);
+        $billingPostal = $billingSame ? $customer->postal_code : (($validated['billing_postal_code'] ?? null) ?: $customer->postal_code);
+        $billingCity = $billingSame ? $customer->city : (($validated['billing_city'] ?? null) ?: $customer->city);
+        $billingVat = ($validated['billing_vat_id'] ?? null) ?: $customer->vat_id;
+        $billingEmail = ($validated['billing_email'] ?? null) ?: $user->email;
+
+        $paymentTermsDays = $customer->payment_terms_days ?? 30;
+        $placedAt = now();
+        $paymentDueDate = $placedAt->copy()->addDays($paymentTermsDays)->toDateString();
 
         $order = Order::create([
             'customer_id' => $user->customer_id,
             'user_id' => $user->id,
             'order_number' => Order::generateOrderNumber(),
+            'po_number' => $validated['po_number'] ?? null,
             'status' => 'bestaetigt',
             'subtotal_eur' => $subtotal,
             'anarbeitung_total_eur' => $anarbeitungTotal,
             'certificate_total_eur' => $certificateTotal,
             'shipping_eur' => $shipping,
             'total_eur' => $grossTotal,
-            'placed_at' => now(),
-            'requested_delivery_date' => $request->requested_delivery_date,
-            'delivery_street' => $request->delivery_street,
-            'delivery_postal_code' => $request->delivery_postal_code,
-            'delivery_city' => $request->delivery_city,
-            'notes' => $request->notes,
+            'placed_at' => $placedAt,
+            'requested_delivery_date' => $validated['requested_delivery_date'],
+            // Delivery
+            'delivery_company_name' => $validated['delivery_company_name'] ?? $customer->company_name,
+            'delivery_contact_name' => $validated['delivery_contact_name'] ?? $user->name,
+            'delivery_contact_phone' => $validated['delivery_contact_phone'] ?? null,
+            'delivery_street' => $validated['delivery_street'],
+            'delivery_postal_code' => $validated['delivery_postal_code'],
+            'delivery_city' => $validated['delivery_city'],
+            'delivery_window' => $validated['delivery_window'] ?? null,
+            // Billing
+            'billing_company_name' => $billingCompany,
+            'billing_street' => $billingStreet,
+            'billing_postal_code' => $billingPostal,
+            'billing_city' => $billingCity,
+            'billing_vat_id' => $billingVat,
+            'billing_email' => $billingEmail,
+            // Payment
+            'payment_terms_days' => $paymentTermsDays,
+            'payment_due_date' => $paymentDueDate,
+            'shipping_option_code' => $validated['shipping_option'],
+            'shipping_option_label' => $shippingLabel,
+            'notes' => $validated['notes'] ?? null,
         ]);
 
         foreach ($items as $item) {
@@ -156,7 +206,13 @@ class CheckoutController extends Controller
 
         $cart->items()->delete();
 
-        Log::info("Bestellbestätigung für {$user->email}: Bestellung {$order->order_number}, Gesamtbetrag: {$order->total_eur} EUR, Versandoption: {$request->shipping_option}");
+        try {
+            Mail::to($billingEmail)->send(new OrderConfirmation($order->fresh('items', 'customer', 'user')));
+        } catch (\Throwable $e) {
+            Log::warning("Bestätigungsmail fehlgeschlagen für {$order->order_number}: " . $e->getMessage());
+        }
+
+        Log::info("Bestellbestätigung für {$user->email}: Bestellung {$order->order_number}, PO: " . ($validated['po_number'] ?? '-') . ", Gesamtbetrag: {$order->total_eur} EUR, Versandoption: {$validated['shipping_option']}, Zahlungsziel: {$paymentDueDate}");
 
         return redirect()->route('checkout.confirmation', $order->order_number);
     }
@@ -165,7 +221,7 @@ class CheckoutController extends Controller
     {
         $order = Order::where('order_number', $orderNumber)
             ->where('user_id', Auth::id())
-            ->with('items')
+            ->with('items', 'customer', 'user')
             ->firstOrFail();
 
         return view('checkout.confirmation', compact('order'));

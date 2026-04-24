@@ -71,20 +71,24 @@
 
     <div class="addresses">
         <div class="address-block">
-            <div class="address-label">Rechnungs- / Lieferadresse</div>
+            <div class="address-label">Rechnungsadresse</div>
             <div class="address-text">
-                <strong>{{ $order->customer->company_name }}</strong><br>
-                {{ $order->delivery_street }}<br>
-                {{ $order->delivery_postal_code }} {{ $order->delivery_city }}<br>
+                <strong>{{ $order->billing_company_name ?? $order->customer->company_name }}</strong><br>
+                {{ $order->billing_street ?? $order->customer->street }}<br>
+                {{ $order->billing_postal_code ?? $order->customer->postal_code }} {{ $order->billing_city ?? $order->customer->city }}<br>
                 Kd.-Nr.: {{ $order->customer->customer_number }}<br>
-                @if($order->customer->vat_id) USt-IdNr.: {{ $order->customer->vat_id }} @endif
+                @if($order->billing_vat_id ?? $order->customer->vat_id) USt-IdNr.: {{ $order->billing_vat_id ?? $order->customer->vat_id }} @endif
             </div>
         </div>
         <div class="address-block">
-            <div class="address-label">Bestellt durch</div>
+            <div class="address-label">Lieferadresse</div>
             <div class="address-text">
-                {{ $order->user->name ?? '—' }}<br>
-                {{ $order->user->email ?? '' }}
+                <strong>{{ $order->delivery_company_name ?? $order->customer->company_name }}</strong><br>
+                {{ $order->delivery_street }}<br>
+                {{ $order->delivery_postal_code }} {{ $order->delivery_city }}<br>
+                @if($order->delivery_contact_name)Ansprechpartner: {{ $order->delivery_contact_name }}<br>@endif
+                @if($order->delivery_contact_phone)Tel.: {{ $order->delivery_contact_phone }}<br>@endif
+                @if($order->delivery_window)Zeitfenster: {{ $order->delivery_window }}@endif
             </div>
         </div>
     </div>
@@ -92,6 +96,7 @@
     <div class="doc-title">Auftragsbestätigung {{ $order->order_number }}</div>
     <div class="doc-meta">
         <span>Bestelldatum: {{ $order->placed_at->format('d.m.Y, H:i') }} Uhr</span>
+        @if($order->po_number)<span>Ihre Referenz: <strong>{{ $order->po_number }}</strong></span>@endif
         <span>Status: {{ $order->getStatusLabel() }}</span>
     </div>
 
@@ -112,11 +117,14 @@
         </div>
         <div class="delivery-box">
             <div class="delivery-box-label">Versandart</div>
-            <div class="delivery-box-value">{{ $order->shipping_eur > 0 ? 'Speditionsversand' : 'Frei-Haus-Lieferung' }}</div>
+            <div class="delivery-box-value">{{ $order->shipping_option_label ?? ($order->shipping_eur > 0 ? 'Speditionsversand' : 'Frei-Haus-Lieferung') }}</div>
         </div>
         <div class="delivery-box">
             <div class="delivery-box-label">Zahlungsziel</div>
-            <div class="delivery-box-value">{{ $order->customer->payment_terms_days }} Tage netto</div>
+            <div class="delivery-box-value">{{ $order->payment_terms_days ?? $order->customer->payment_terms_days }} Tage netto</div>
+            @if($order->payment_due_date)
+                <div style="font-size: 9px; color: #666; margin-top: 2px;">fällig am {{ $order->payment_due_date->format('d.m.Y') }}</div>
+            @endif
         </div>
     </div>
 
@@ -196,6 +204,35 @@
         </tr>
     </table>
 
+    <div style="margin-top: 30px; padding: 16px 18px; border: 2px solid #1e3a8a; border-radius: 8px; background: #f0f4ff;">
+        <div style="font-size: 12px; font-weight: 700; color: #1e3a8a; margin-bottom: 8px;">Zahlungsinformationen</div>
+        <table style="width: 100%; font-size: 10px;">
+            <tr>
+                <td style="padding: 2px 8px 2px 0; color: #666; width: 28%;">Bank</td>
+                <td style="padding: 2px 0; font-weight: 600;">Sparkasse Bodensee</td>
+            </tr>
+            <tr>
+                <td style="padding: 2px 8px 2px 0; color: #666;">IBAN</td>
+                <td style="padding: 2px 0; font-family: monospace; font-weight: 600;">DE89 6905 0001 0012 3456 78</td>
+            </tr>
+            <tr>
+                <td style="padding: 2px 8px 2px 0; color: #666;">BIC</td>
+                <td style="padding: 2px 0; font-family: monospace; font-weight: 600;">SOLADES1KNZ</td>
+            </tr>
+            <tr>
+                <td style="padding: 2px 8px 2px 0; color: #666;">Verwendungszweck</td>
+                <td style="padding: 2px 0; font-family: monospace; font-weight: 700; color: #b45309;">{{ $order->order_number }}@if($order->po_number) / {{ $order->po_number }}@endif</td>
+            </tr>
+            <tr>
+                <td style="padding: 2px 8px 2px 0; color: #666;">Fällig am</td>
+                <td style="padding: 2px 0; font-weight: 600;">{{ $order->payment_due_date?->format('d.m.Y') ?? '—' }} ({{ $order->payment_terms_days ?? 30 }} Tage netto)</td>
+            </tr>
+        </table>
+        <div style="font-size: 9px; color: #666; margin-top: 8px; font-style: italic;">
+            Bitte stets den Verwendungszweck angeben, damit wir Ihre Zahlung korrekt zuordnen können. Die Rechnung erhalten Sie separat per E-Mail nach Versand der Ware.
+        </div>
+    </div>
+
     <div class="footer-notes">
         <strong>Hinweise zur Lieferung:</strong><br>
         · Lagerware wird innerhalb von 1–3 Werktagen versandt. Bestellware: 5–10 Werktage ab Auftragsbestätigung.<br>
@@ -206,7 +243,7 @@
         <strong>Bei Fragen zu Ihrer Bestellung:</strong><br>
         · Telefon: +49 751 3606-0 (Mo–Fr 7:00–17:00 Uhr)<br>
         · E-Mail: auftraege@mueller-stahl.de<br>
-        · Bitte geben Sie Ihre Bestellnummer <strong>{{ $order->order_number }}</strong> an.
+        · Bitte geben Sie Ihre Bestellnummer <strong>{{ $order->order_number }}</strong>@if($order->po_number) bzw. Ihre Referenz <strong>{{ $order->po_number }}</strong>@endif an.
     </div>
 
     <div class="footer-legal">

@@ -15,6 +15,7 @@ class Order extends Model
         return [
             'placed_at' => 'datetime',
             'requested_delivery_date' => 'date',
+            'payment_due_date' => 'date',
         ];
     }
 
