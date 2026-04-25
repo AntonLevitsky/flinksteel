@@ -15,6 +15,27 @@
             @endforeach
         </nav>
 
+        @php
+            $intro = $category->getIntroText();
+            $related = $category->getRelatedCategories();
+        @endphp
+
+        {{-- Title + intro + cross-links --}}
+        <div class="mb-6">
+            <h1 class="text-2xl font-bold text-gray-900 mb-2">{{ $category->name }}</h1>
+            @if($intro)
+                <p class="text-sm text-gray-600 max-w-3xl leading-relaxed">{{ $intro }}</p>
+            @endif
+            @if(!empty($related))
+                <p class="text-sm text-gray-500 mt-2">
+                    <span class="text-gray-400">Andere Ausführung gesucht?</span>
+                    @foreach($related as $i => $rel)
+                        <a href="{{ route('category.show', $rel['category']->slug) }}" class="text-blue-900 hover:underline font-medium">{{ $rel['label'] }}</a>@if($i < count($related) - 1)<span class="text-gray-300"> · </span>@endif
+                    @endforeach
+                </p>
+            @endif
+        </div>
+
         {{-- Mobile filter trigger --}}
         <div class="flex items-center justify-between mb-4 lg:hidden">
             <span class="text-sm text-gray-500">{{ $products->total() }} Produkte</span>
