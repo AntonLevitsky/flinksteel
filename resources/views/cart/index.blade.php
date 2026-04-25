@@ -16,6 +16,7 @@
                     return [
                         'id' => $item->id,
                         'product_id' => $item->product_id,
+                        'product_url' => route('product.show', $item->product_id),
                         'product_name' => $item->product->name,
                         'product_sku' => $item->product->sku,
                         'material_grade' => $item->product->material->grade,

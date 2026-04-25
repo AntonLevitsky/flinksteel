@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 interface CartItem {
     id: number;
     product_id: number;
+    product_url: string;
     product_name: string;
     product_sku: string;
     material_grade: string;
@@ -157,7 +158,11 @@ export default function CartTable({ items: initialItems, checkoutUrl, homeUrl, a
                         <div key={item.id} className="p-4 sm:p-6 flex gap-4">
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
-                                    <h3 className="text-sm font-semibold text-gray-900 truncate">{item.product_name}</h3>
+                                    <h3 className="text-sm font-semibold truncate">
+                                        <a href={item.product_url} className="text-gray-900 hover:text-blue-900 hover:underline">
+                                            {item.product_name}
+                                        </a>
+                                    </h3>
                                     {item.is_bestellware ? (
                                         <span className="shrink-0 text-[10px] font-medium text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
                                             Bestellware
